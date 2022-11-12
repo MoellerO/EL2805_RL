@@ -69,7 +69,8 @@ class Maze:
             for j in range(self.maze.shape[1]):
                 for k in range(self.maze.shape[0]):
                     for l in range(self.maze.shape[1]):
-                        if self.maze[i, j] != 1:  # the player can not stand somewhere that is a wall
+                        # the player can not stand somewhere that is a wall
+                        if self.maze[i, j] != 1:
                             states[s] = (i, j, k, l)
                             map[(i, j, k, l)] = s
                             s += 1
@@ -117,7 +118,8 @@ class Maze:
                 hitting_maze_walls = (row == -1) or (row == self.maze.shape[0]) or \
                                      (col == -1) or (col == self.maze.shape[1])
                 if not hitting_maze_walls:
-                    next_state_list.append(self.map[(player_pos[0], player_pos[1], row, col)])
+                    next_state_list.append(
+                        self.map[(player_pos[0], player_pos[1], row, col)])
                     count += 1
 
         p_minotaur = 1 / count
@@ -297,11 +299,13 @@ def dynamic_programming(env, horizon):
 
 def draw_maze(maze, minotaur_pos, actions):
     # Map a color to each cell in the maze
-    col_map = {0: WHITE, 1: BLACK, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
+    col_map = {0: WHITE, 1: BLACK,
+               2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED}
 
     # Give a color to each cell
     rows, cols = maze.shape
-    colored_maze = [[col_map[maze[j, i]] for i in range(cols)] for j in range(rows)]
+    colored_maze = [[col_map[maze[j, i]]
+                     for i in range(cols)] for j in range(rows)]
 
     # Create figure of the size of the maze
     fig = plt.figure(1, figsize=(cols, rows))
@@ -314,7 +318,8 @@ def draw_maze(maze, minotaur_pos, actions):
 
     # Give a color to each cell
     rows, cols = maze.shape
-    colored_maze = [[col_map[maze[j, i]] for i in range(cols)] for j in range(rows)]
+    colored_maze = [[col_map[maze[j, i]]
+                     for i in range(cols)] for j in range(rows)]
 
     # Create figure of the size of the maze
     fig = plt.figure(1, figsize=(cols, rows))
@@ -336,12 +341,14 @@ def draw_maze(maze, minotaur_pos, actions):
     grid.get_celld()[minotaur_pos].set_facecolor(LIGHT_PURPLE)
     for i in range(actions.shape[0]):
         for j in range(actions.shape[1]):
-            grid.get_celld()[(i, j)].get_text().set_text(dict_actions[actions[i, j]])
+            grid.get_celld()[(i, j)].get_text().set_text(
+                dict_actions[actions[i, j]])
 
 
 def animate_solution(maze, path):
     # Map a color to each cell in the maze
-    col_map = {0: WHITE, 1: BLACK, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED}
+    col_map = {0: WHITE, 1: BLACK,
+               2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED}
 
     # Size of the maze
     rows, cols = maze.shape
@@ -356,7 +363,8 @@ def animate_solution(maze, path):
     ax.set_yticks([])
 
     # Give a color to each cell
-    colored_maze = [[col_map[maze[j, i]] for i in range(cols)] for j in range(rows)]
+    colored_maze = [[col_map[maze[j, i]]
+                     for i in range(cols)] for j in range(rows)]
 
     # Create figure of the size of the maze
     fig = plt.figure(1, figsize=(cols, rows))
@@ -380,19 +388,24 @@ def animate_solution(maze, path):
             # If the player is at the exit
             if maze[path[i][0:2]] == 2:
                 grid.get_celld()[(path[i][0:2])].set_facecolor(LIGHT_GREEN)
-                grid.get_celld()[(path[i][0:2])].get_text().set_text('Player is out')
-                grid.get_celld()[(path[i - 1][2:])].set_facecolor(col_map[maze[path[i - 1][2:]]])
+                grid.get_celld()[(path[i][0:2])].get_text().set_text(
+                    'Player is out')
+                grid.get_celld()[(path[i - 1][2:])
+                                 ].set_facecolor(col_map[maze[path[i - 1][2:]]])
                 grid.get_celld()[(path[i - 1][2:])].get_text().set_text('')
-                grid.get_celld()[(path[i - 1][:2])].set_facecolor(col_map[maze[path[i - 1][:2]]])
+                grid.get_celld()[(path[i - 1][:2])
+                                 ].set_facecolor(col_map[maze[path[i - 1][:2]]])
                 grid.get_celld()[(path[i - 1][:2])].get_text().set_text('')
                 break
 
             # If the player is not at the exit, change the previous cells (both the player
             # and the minotaur) back to their original colors
             else:
-                grid.get_celld()[(path[i - 1][0:2])].set_facecolor(col_map[maze[path[i - 1][0:2]]])
+                grid.get_celld()[(path[i - 1][0:2])
+                                 ].set_facecolor(col_map[maze[path[i - 1][0:2]]])
                 grid.get_celld()[(path[i - 1][0:2])].get_text().set_text('')
-                grid.get_celld()[(path[i - 1][2:])].set_facecolor(col_map[maze[path[i - 1][2:]]])
+                grid.get_celld()[(path[i - 1][2:])
+                                 ].set_facecolor(col_map[maze[path[i - 1][2:]]])
                 grid.get_celld()[(path[i - 1][2:])].get_text().set_text('')
 
         # Change the colors of the current cells
