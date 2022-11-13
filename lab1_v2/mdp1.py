@@ -153,7 +153,7 @@ class Maze:
         """
         :return: the reward matrix
         """
-        rewards = np.zeros((self.n_states, self.n_actions, self.T))
+        rewards = np.zeros((self.n_states, self.n_actions, self.T + 1))
 
         for t in range(self.T + 1):
             for s in range(self.n_states):
@@ -333,7 +333,7 @@ def dynamic_programming(env, horizon):
     Q = np.zeros((n_states, n_actions))
 
     # Initialization
-    Q = np.copy(r)
+    Q = np.copy(r[:, :, T])
     V[:, T] = np.max(Q, 1)
     policy[:, T] = np.argmax(Q, 1)
 
@@ -343,7 +343,7 @@ def dynamic_programming(env, horizon):
         for s in range(n_states):
             for a in range(n_actions):
                 # Update of the temporary Q values
-                Q[s, a] = r[s, a] + np.dot(p[:, s, a], V[:, t + 1])
+                Q[s, a] = r[s, a, t] + np.dot(p[:, s, a], V[:, t + 1])
         # Update by taking the maximum Q value w.r.t the action a
         V[:, t] = np.max(Q, 1)
         # The optimal action is the one that maximizes the Q function
