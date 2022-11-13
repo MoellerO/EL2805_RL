@@ -42,11 +42,12 @@ class Maze:
     MINOTAUR_REWARD = -100
     CLOSE_REWARD = -2  # Getting close to the minotaur
 
-    def __init__(self, maze, minotaur_stay=False):
+    def __init__(self, maze, horizon, minotaur_stay=False):
         """ Constructor of the environment Maze.
         """
         self.maze = maze
-        self.exit = np.argwhere(maze == 2)
+        self.T = horizon
+        self.exit = np.argwhere(maze == 2)[0]
         self.minotaur_stay = minotaur_stay
         self.actions = self.__actions()
         self.states, self.map = self.__states()
@@ -152,33 +153,37 @@ class Maze:
         """
         :return: the reward matrix
         """
-        rewards = np.zeros((self.n_states, self.n_actions))
+        rewards = np.zeros((self.n_states, self.n_actions, self.T))
 
-        for s in range(self.n_states):
-            for a in range(self.n_actions):
-                _, next_s_list = self.__move(s, a)
-                reward_list = []
-                for next_s in next_s_list:
-                    # Reward for hitting a wall
-                    if self.states[s][0:2] == self.states[next_s][0:2] and a != self.STAY:
-                        reward_list.append(self.IMPOSSIBLE_REWARD)
-                    # Reward for meeting the minotaur
-                    elif self.states[next_s][0:2] == self.states[next_s][2:]:
-                        reward_list.append(self.MINOTAUR_REWARD)
-                    # Reward for being next the Minotaur
-                    # elif (abs(self.states[next_s][0] - self.states[next_s][2]) +
-                    #       abs(self.states[next_s][1] - self.states[next_s][3])) == 1:
-                    #     reward_list.append(self.CLOSE_REWARD)
-                    # TODO: this reward is rendundand as the negative reward for being close to the minotaur is already considered in the case above
-                    # Reward for reaching the exit
-                    elif self.states[s][0:2] == self.states[next_s][0:2] and self.maze[self.states[next_s][0:2]] == 2:
-                        reward_list.append(self.GOAL_REWARD)
+        for t in range(self.T + 1):
+            for s in range(self.n_states):
+                for a in range(self.n_actions):
+                    _, next_s_list = self.__move(s, a)
+                    reward_list = []
+                    for next_s in next_s_list:
+                        # Reward for hitting a wall
+                        if self.states[s][0:2] == self.states[next_s][0:2] and a != self.STAY:
+                            reward_list.append(self.IMPOSSIBLE_REWARD)
+                        # Reward if distance is longer than time
+                        elif self.bfs(self.states[s][0:2]) > self.T - t:
+                            reward_list.append(self.IMPOSSIBLE_REWARD)
+                        # Reward for meeting the minotaur
+                        elif self.states[next_s][0:2] == self.states[next_s][2:]:
+                            reward_list.append(self.MINOTAUR_REWARD)
+                        # Reward for being next the Minotaur
+                        # elif (abs(self.states[next_s][0] - self.states[next_s][2]) +
+                        #       abs(self.states[next_s][1] - self.states[next_s][3])) == 1:
+                        #     reward_list.append(self.CLOSE_REWARD)
+                        # TODO: this reward is rendundand as the negative reward for being close to the minotaur is already considered in the case above
+                        # Reward for reaching the exit
+                        elif self.states[s][0:2] == self.states[next_s][0:2] and self.maze[self.states[next_s][0:2]] == 2:
+                            reward_list.append(self.GOAL_REWARD)
 
-                    # Reward for taking a step to an empty cell that is not the exit
-                    else:
-                        reward_list.append(self.STEP_REWARD)
-                mean_reward = np.mean(reward_list)
-                rewards[s, a] = mean_reward
+                        # Reward for taking a step to an empty cell that is not the exit
+                        else:
+                            reward_list.append(self.STEP_REWARD)
+                    mean_reward = np.mean(reward_list)
+                    rewards[s, a, t] = mean_reward
         return rewards
 
     def simulate(self, start, policy, method):
@@ -252,6 +257,51 @@ class Maze:
             if self.states[i][2:] == minotaur_pos:
                 actions[self.states[i][:2]] = action
         draw_maze(self.maze, minotaur_pos, actions)
+
+    def isValid(self, max_row, max_col, row, col):
+        return (row >= 0) and (row < max_row) and (col >= 0) and (col < max_col)
+
+    def bfs(self, src):
+        ROW = self.maze.shape[0]
+        COL = self.maze.shape[1]
+        rowNum = [-1, 0, 0, 1]
+        colNum = [0, -1, 1, 0]
+
+        # check source and destination cell is not wall
+        if self.maze[src[0]][src[1]] == 1 or self.maze[self.exit[0]][self.exit[1]] == 1:
+            return -1
+
+        visited = [[False for i in range(COL)]
+                   for j in range(ROW)]
+
+        # Mark the source cell as visited
+        visited[src[0]][src[1]] = True
+
+        q = deque()
+        s = (src, 0)  # distance of source is 0
+        q.append(s)  # Enqueue source cell
+
+        # Do a BFS starting from source cell
+        while q:
+            curr = q.popleft()  # Dequeue the front cell
+            # done when destination is reached
+            pt = curr[0]
+            if pt[0] == self.exit[0] and pt[1] == self.exit[1]:
+                return curr[1]
+
+            # Otherwise enqueue its adjacent cells
+            for i in range(4):
+                row = pt[0] + rowNum[i]
+                col = pt[1] + colNum[i]
+                # if adjacent cell is valid, has path and not visited yet, enqueue it.
+                if (self.isValid(self.maze.shape[0], self.maze.shape[1], row, col) and
+                    self.maze[row][col] != 1 and
+                        not visited[row][col]):
+                    visited[row][col] = True
+                    adjcell = ((row, col), curr[1] + 1)
+                    q.append(adjcell)
+        # Return -1 if destination cannot be reached
+        return -1
 
 
 def dynamic_programming(env, horizon):
@@ -423,63 +473,3 @@ def animate_solution(maze, path):
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)
-
-
-class Point:
-    def __init__(self, x: int, y: int):
-        self.x = x
-        self.y = y
-
-
-class queueNode:
-    def __init__(self, pt, dist):
-        self.pt = pt  # The coordinates of the cell
-        self.dist = dist  # Cell's distance from the source
-
-
-def isValid(max_row, max_col, row, col):
-    return (row >= 0) and (row < max_row) and (col >= 0) and (col < max_col)
-
-
-def bfs(mat, src, dest):
-    ROW = mat.shape[0]
-    COL = mat.shape[1]
-    rowNum = [-1, 0, 0, 1]
-    colNum = [0, -1, 1, 0]
-
-    # check source and destination cell is not wall
-    if mat[src.x][src.y] == 1 or mat[dest.x][dest.y] == 1:
-        return -1
-
-    visited = [[False for i in range(COL)]
-               for j in range(ROW)]
-
-    # Mark the source cell as visited
-    visited[src.x][src.y] = True
-
-    q = deque()
-    s = queueNode(src, 0)  # distance of source is 0
-    q.append(s)  # Enqueue source cell
-
-    # Do a BFS starting from source cell
-    while q:
-        curr = q.popleft()  # Dequeue the front cell
-        # done when destination is reached
-        pt = curr.pt
-        if pt.x == dest.x and pt.y == dest.y:
-            return curr.dist
-
-        # Otherwise enqueue its adjacent cells
-        for i in range(4):
-            row = pt.x + rowNum[i]
-            col = pt.y + colNum[i]
-            # if adjacent cell is valid, has path and not visited yet, enqueue it.
-            if (isValid(mat.shape[0], mat.shape[1], row, col) and
-               mat[row][col] != 1 and
-                    not visited[row][col]):
-                visited[row][col] = True
-                Adjcell = queueNode(Point(row, col),
-                                    curr.dist + 1)
-                q.append(Adjcell)
-    # Return -1 if destination cannot be reached
-    return -1
