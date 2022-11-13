@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import time
 from IPython import display
 import random
+from collections import deque
+
 
 # Implemented methods
 methods = ['DynProg', 'ValIter']
@@ -37,12 +39,14 @@ class Maze:
     STEP_REWARD = -1
     GOAL_REWARD = 0
     IMPOSSIBLE_REWARD = -100
+    MINOTAUR_REWARD = -100
     CLOSE_REWARD = -2  # Getting close to the minotaur
 
     def __init__(self, maze, minotaur_stay=False):
         """ Constructor of the environment Maze.
         """
         self.maze = maze
+        self.exit = np.argwhere(maze == 2)
         self.minotaur_stay = minotaur_stay
         self.actions = self.__actions()
         self.states, self.map = self.__states()
@@ -160,11 +164,12 @@ class Maze:
                         reward_list.append(self.IMPOSSIBLE_REWARD)
                     # Reward for meeting the minotaur
                     elif self.states[next_s][0:2] == self.states[next_s][2:]:
-                        reward_list.append(self.IMPOSSIBLE_REWARD)
+                        reward_list.append(self.MINOTAUR_REWARD)
                     # Reward for being next the Minotaur
-                    elif (abs(self.states[next_s][0] - self.states[next_s][2]) +
-                          abs(self.states[next_s][1] - self.states[next_s][3])) == 1:
-                        reward_list.append(self.CLOSE_REWARD)
+                    # elif (abs(self.states[next_s][0] - self.states[next_s][2]) +
+                    #       abs(self.states[next_s][1] - self.states[next_s][3])) == 1:
+                    #     reward_list.append(self.CLOSE_REWARD)
+                    # TODO: this reward is rendundand as the negative reward for being close to the minotaur is already considered in the case above
                     # Reward for reaching the exit
                     elif self.states[s][0:2] == self.states[next_s][0:2] and self.maze[self.states[next_s][0:2]] == 2:
                         reward_list.append(self.GOAL_REWARD)
@@ -418,3 +423,63 @@ def animate_solution(maze, path):
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)
+
+
+class Point:
+    def __init__(self, x: int, y: int):
+        self.x = x
+        self.y = y
+
+
+class queueNode:
+    def __init__(self, pt, dist):
+        self.pt = pt  # The coordinates of the cell
+        self.dist = dist  # Cell's distance from the source
+
+
+def isValid(max_row, max_col, row, col):
+    return (row >= 0) and (row < max_row) and (col >= 0) and (col < max_col)
+
+
+def bfs(mat, src, dest):
+    ROW = mat.shape[0]
+    COL = mat.shape[1]
+    rowNum = [-1, 0, 0, 1]
+    colNum = [0, -1, 1, 0]
+
+    # check source and destination cell is not wall
+    if mat[src.x][src.y] == 1 or mat[dest.x][dest.y] == 1:
+        return -1
+
+    visited = [[False for i in range(COL)]
+               for j in range(ROW)]
+
+    # Mark the source cell as visited
+    visited[src.x][src.y] = True
+
+    q = deque()
+    s = queueNode(src, 0)  # distance of source is 0
+    q.append(s)  # Enqueue source cell
+
+    # Do a BFS starting from source cell
+    while q:
+        curr = q.popleft()  # Dequeue the front cell
+        # done when destination is reached
+        pt = curr.pt
+        if pt.x == dest.x and pt.y == dest.y:
+            return curr.dist
+
+        # Otherwise enqueue its adjacent cells
+        for i in range(4):
+            row = pt.x + rowNum[i]
+            col = pt.y + colNum[i]
+            # if adjacent cell is valid, has path and not visited yet, enqueue it.
+            if (isValid(mat.shape[0], mat.shape[1], row, col) and
+               mat[row][col] != 1 and
+                    not visited[row][col]):
+                visited[row][col] = True
+                Adjcell = queueNode(Point(row, col),
+                                    curr.dist + 1)
+                q.append(Adjcell)
+    # Return -1 if destination cannot be reached
+    return -1
