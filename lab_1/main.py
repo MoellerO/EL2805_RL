@@ -27,4 +27,4 @@ start = (0, 0, 6, 6)
 path = env.simulate(start, policy, method)
 print(path)
 # Show the shortest path
-mz.animate_solution(field, path)
+# mz.animate_solution(field, path)

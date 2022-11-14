@@ -202,10 +202,13 @@ class Maze:
 
             # Add the starting position in the maze to the path
             path.append(start)
-
+            isWin = 0
+            steps = 0
+            lost = 0
             while t < horizon - 1:
                 # Move to next state given the policy and the current state
                 _, next_state_list = self.__move(s, policy[s, t])
+
                 next_s = random.choice(next_state_list)
 
                 # Add the position in the maze corresponding to the next state
@@ -217,10 +220,13 @@ class Maze:
                 s = next_s
 
                 if self.states[s][0:2] == self.states[s][2:] or t == horizon - 1:
-                    print("YOU LOST THE GAME")
+                    # print("YOU LOST THE GAME")
+                    lost = 1
                     break
                 elif self.maze[self.states[s][0:2]] == 2:
-                    print(f"YOU WON!!!! Current time step = {t}")
+                    # print(f"YOU WON!!!! Current time step = {t}")
+                    steps = t
+                    isWin = 1
                     break
         ############### TO BE MODIFIED FOR e) ##############
         if method == 'ValIter':
@@ -245,7 +251,7 @@ class Maze:
                 path.append(self.states[next_s])
                 # Update time and state for next iteration
                 t += 1
-        return path
+        return isWin, lost, steps, path
 
     def draw_path(self, policy_matrix, time_step, minotaur_pos):
         # print(len(self.states))  # 2240 states
