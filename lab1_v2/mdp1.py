@@ -222,6 +222,7 @@ class Maze:
                 if self.states[s][0:2] == self.states[s][2:] or t == horizon - 1:
                     # print("YOU LOST THE GAME")
                     isLost = 1
+                    steps = t
                     break
                 elif self.maze[self.states[s][0:2]] == 2:
                     # print(f"YOU WON!!!! Current time step = {t}")
@@ -312,18 +313,21 @@ class Maze:
     def compute_prob(self, start, policy, method, trials):
         total_wins = 0
         total_losses = 0
-        total_steps = 0
+        # dictionary holding with key=#steps and value= 'number of times player needed #steps to finish'
+        step_distribution_win = dict.fromkeys(range(self.T + 1), 0)
+        step_distribution_loss = dict.fromkeys(range(self.T + 1), 0)
         for _ in range(trials):
             isWin, isLost, steps, _ = self.simulate(start, policy, method)
             total_wins += isWin
             total_losses += isLost
-            total_steps += steps
+            step_distribution_win[steps] += isWin
+            step_distribution_loss[steps] += isLost
+
         assert (trials == total_losses + total_wins)
-        prob_win = total_wins / trials
-        prob_los = 1 - prob_win
-        assert (prob_los == total_losses / trials)
-        avg_steps = total_steps / trials
-        return prob_win, avg_steps
+        prob_win = round(total_wins / trials, 5)
+        prob_los = round(1 - prob_win, 5)
+        assert (prob_los == round(total_losses / trials, 5))
+        return prob_win, step_distribution_win, step_distribution_loss
 
 
 def dynamic_programming(env, horizon):
