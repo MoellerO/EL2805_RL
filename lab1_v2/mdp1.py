@@ -204,7 +204,7 @@ class Maze:
             path.append(start)
             isWin = 0
             steps = 0
-            lost = 0
+            isLost = 0
             while t < horizon - 1:
                 # Move to next state given the policy and the current state
                 _, next_state_list = self.__move(s, policy[s, t])
@@ -221,7 +221,7 @@ class Maze:
 
                 if self.states[s][0:2] == self.states[s][2:] or t == horizon - 1:
                     # print("YOU LOST THE GAME")
-                    lost = 1
+                    isLost = 1
                     break
                 elif self.maze[self.states[s][0:2]] == 2:
                     # print(f"YOU WON!!!! Current time step = {t}")
@@ -251,7 +251,7 @@ class Maze:
                 path.append(self.states[next_s])
                 # Update time and state for next iteration
                 t += 1
-        return isWin, lost, steps, path
+        return isWin, isLost, steps, path
 
     def draw_path(self, policy_matrix, time_step, minotaur_pos):
         # print(len(self.states))  # 2240 states
@@ -308,6 +308,22 @@ class Maze:
                     q.append(adjcell)
         # Return -1 if destination cannot be reached
         return -1
+
+    def compute_prob(self, start, policy, method, trials):
+        total_wins = 0
+        total_losses = 0
+        total_steps = 0
+        for _ in range(trials):
+            isWin, isLost, steps, _ = self.simulate(start, policy, method)
+            total_wins += isWin
+            total_losses += isLost
+            total_steps += steps
+        assert (trials == total_losses + total_wins)
+        prob_win = total_wins / trials
+        prob_los = 1 - prob_win
+        assert (prob_los == total_losses / trials)
+        avg_steps = total_steps / trials
+        return prob_win, avg_steps
 
 
 def dynamic_programming(env, horizon):
@@ -479,3 +495,22 @@ def animate_solution(maze, path):
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)
+
+
+def print_path(path, show_step_number=False):
+    player_path = [x[:2] for x in path]
+    minu_path = [x[2:] for x in path]
+    if not show_step_number:
+        player_string = 'Player: ' + ''.join(
+            [str(step) + ' -> ' for i, step in enumerate(player_path[:-1])]) + str(player_path[-1])
+        minu_string = 'Minota: ' + ''.join(
+            [str(step) + ' -> ' for i, step in enumerate(minu_path[:-1])]) + str(minu_path[-1])
+    else:
+        player_string = 'Player: ' + ''.join(
+            ['[' + str(i) + ']' + str(step) + ' --> ' for i, step in enumerate(player_path[:-1])]) + '[' + str(len(player_path) - 1) + ']' + str(player_path[-1])
+        minu_string = 'Minota: ' + ''.join(
+            ['[' + str(i) + ']' + str(step) + ' --> ' for i, step in enumerate(minu_path[:-1])]) + '[' + str(len(minu_path) - 1) + ']' + str(minu_path[-1])
+
+    print('Total Steps:', len(path))
+    print(player_string)
+    print(minu_string)
