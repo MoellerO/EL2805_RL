@@ -165,7 +165,9 @@ class Maze:
                         if self.states[s][0:2] == self.states[next_s][0:2] and a != self.STAY:
                             reward_list.append(self.IMPOSSIBLE_REWARD)
                         # Reward if distance is longer than time
-                        elif self.bfs(self.states[s][0:2]) > self.T - t:
+                        # elif self.bfs(self.states[s][0:2]) > self.T - t:
+                        #     reward_list.append(self.IMPOSSIBLE_REWARD)
+                        elif self.T - 1 <= t and self.maze[self.states[next_s][0:2]] != 2:
                             reward_list.append(self.IMPOSSIBLE_REWARD)
                         # Reward for meeting the minotaur
                         elif self.states[next_s][0:2] == self.states[next_s][2:]:
