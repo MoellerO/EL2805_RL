@@ -352,6 +352,7 @@ def value_iteration(env, gamma, epsilon):
     for s in range(n_states):
         for a in range(n_actions):
             Q[s, a] = r[s, a] + gamma * np.dot(p[:, s, a], V)
+
     BV = np.max(Q, 1)
 
     # Iterate until convergence
