@@ -94,6 +94,10 @@ class Maze:
         if self.states[state][0:2] == self.states[state][2:]:
             count = 1
             next_state_list.append(state)
+
+        elif self.maze[self.states[state][0:2]] == 2:
+            count = 1
+            next_state_list.append(state)
         else:
             # Compute the future position of the player given current (state, action)
             row = self.states[state][0] + self.actions[action][0]
@@ -153,39 +157,33 @@ class Maze:
         """
         :return: the reward matrix
         """
-        rewards = np.zeros((self.n_states, self.n_actions, self.T + 1))
+        rewards = np.zeros((self.n_states, self.n_actions))
 
-        for t in range(self.T + 1):
-            for s in range(self.n_states):
-                for a in range(self.n_actions):
-                    _, next_s_list = self.__move(s, a)
-                    reward_list = []
-                    for next_s in next_s_list:
-                        # Reward for hitting a wall
-                        if self.states[s][0:2] == self.states[next_s][0:2] and a != self.STAY:
-                            reward_list.append(self.IMPOSSIBLE_REWARD)
-                        # Reward if distance is longer than time
-                        # elif self.bfs(self.states[s][0:2]) > self.T - t:
-                        #     reward_list.append(self.IMPOSSIBLE_REWARD)
-                        elif self.T - 1 <= t and self.maze[self.states[next_s][0:2]] != 2:
-                            reward_list.append(self.IMPOSSIBLE_REWARD)
-                        # Reward for meeting the minotaur
-                        elif self.states[next_s][0:2] == self.states[next_s][2:]:
-                            reward_list.append(self.MINOTAUR_REWARD)
-                        # Reward for being next the Minotaur
-                        # elif (abs(self.states[next_s][0] - self.states[next_s][2]) +
-                        #       abs(self.states[next_s][1] - self.states[next_s][3])) == 1:
-                        #     reward_list.append(self.CLOSE_REWARD)
-                        # TODO: this reward is rendundand as the negative reward for being close to the minotaur is already considered in the case above
-                        # Reward for reaching the exit
-                        elif self.states[s][0:2] == self.states[next_s][0:2] and self.maze[self.states[next_s][0:2]] == 2:
-                            reward_list.append(self.GOAL_REWARD)
+        for s in range(self.n_states):
+            for a in range(self.n_actions):
+                _, next_s_list = self.__move(s, a)
+                reward_list = []
+                for next_s in next_s_list:
+                    # Reward for hitting a wall
+                    if self.states[s][0:2] == self.states[next_s][0:2] and a != self.STAY:
+                        reward_list.append(self.IMPOSSIBLE_REWARD)
+                    # Reward if distance is longer than time
+                    # # Reward for meeting the minotaur
+                    elif self.states[next_s][0:2] == self.states[next_s][2:]:
+                        reward_list.append(self.MINOTAUR_REWARD)
+                    # Reward for being next the Minotaur
+                    # elif (abs(self.states[next_s][0] - self.states[next_s][2]) +
+                    #       abs(self.states[next_s][1] - self.states[next_s][3])) == 1:
+                    #     reward_list.append(self.CLOSE_REWARD)
+                    # Reward for reaching the exit
+                    elif self.states[s][0:2] == self.states[next_s][0:2] and self.maze[self.states[next_s][0:2]] == 2:
+                        reward_list.append(self.GOAL_REWARD)
 
-                        # Reward for taking a step to an empty cell that is not the exit
-                        else:
-                            reward_list.append(self.STEP_REWARD)
-                    mean_reward = np.mean(reward_list)
-                    rewards[s, a, t] = mean_reward
+                    # Reward for taking a step to an empty cell that is not the exit
+                    else:
+                        reward_list.append(self.STEP_REWARD)
+                mean_reward = np.mean(reward_list)
+                rewards[s, a] = mean_reward
         return rewards
 
     def simulate(self, start, policy, method):
@@ -236,10 +234,14 @@ class Maze:
             # Initialize current state, next state and time
             t = 1
             s = self.map[start]
+            T = np.random.geometric(1 / 30, size=1)[0]
+
             # Add the starting position in the maze to the path
             path.append(start)
             # Move to next state given the policy and the current state
-            next_s = self.__move(s, policy[s])
+            _, next_state_list = self.__move(s, policy[s])
+
+            next_s = random.choice(next_state_list)
             # Add the position in the maze corresponding to the next state
             # to the path
             path.append(self.states[next_s])
@@ -248,23 +250,39 @@ class Maze:
                 # Update state
                 s = next_s
                 # Move to next state given the policy and the current state
-                next_s = self.__move(s, policy[s])
+                _, next_state_list = self.__move(s, policy[s])
+                next_s = random.choice(next_state_list)
+
                 # Add the position in the maze corresponding to the next state
                 # to the path
                 path.append(self.states[next_s])
                 # Update time and state for next iteration
                 t += 1
+                if self.states[s][0:2] == self.states[s][2:] or t == T:
+                    # print("YOU LOST THE GAME")
+                    isLost = 1
+                    steps = t
+                    break
+                elif self.maze[self.states[s][0:2]] == 2:
+                    # print(f"YOU WON!!!! Current time step = {t}")
+                    steps = t
+                    isWin = 1
+                    break
         return isWin, isLost, steps, path
 
-    def draw_path(self, policy_matrix, time_step, minotaur_pos):
+    def draw_path(self, policy_matrix, time_step, minotaur_pos, ValIter=False):
         # print(len(self.states))  # 2240 states
         n_rows = self.maze.shape[0]
         n_cols = self.maze.shape[1]
         actions = np.zeros((n_rows, n_cols))
-
-        for i, action in enumerate(policy_matrix[:, time_step]):
-            if self.states[i][2:] == minotaur_pos:
-                actions[self.states[i][:2]] = action
+        if ValIter:
+            for i, action in enumerate(policy_matrix):
+                if self.states[i][2:] == minotaur_pos:
+                    actions[self.states[i][:2]] = action
+        else:
+            for i, action in enumerate(policy_matrix[:, time_step]):
+                if self.states[i][2:] == minotaur_pos:
+                    actions[self.states[i][:2]] = action
         draw_maze(self.maze, minotaur_pos, actions)
 
     def isValid(self, max_row, max_col, row, col):
@@ -361,7 +379,7 @@ def dynamic_programming(env, horizon):
     Q = np.zeros((n_states, n_actions))
 
     # Initialization
-    Q = np.copy(r[:, :, T])
+    Q = np.copy(r)
     V[:, T] = np.max(Q, 1)
     policy[:, T] = np.argmax(Q, 1)
 
@@ -371,12 +389,70 @@ def dynamic_programming(env, horizon):
         for s in range(n_states):
             for a in range(n_actions):
                 # Update of the temporary Q values
-                Q[s, a] = r[s, a, t] + np.dot(p[:, s, a], V[:, t + 1])
+                Q[s, a] = r[s, a] + np.dot(p[:, s, a], V[:, t + 1])
         # Update by taking the maximum Q value w.r.t the action a
         V[:, t] = np.max(Q, 1)
         # The optimal action is the one that maximizes the Q function
         policy[:, t] = np.argmax(Q, 1)
 
+    return V, policy
+
+
+def value_iteration(env, gamma, epsilon):
+    """ Solves the shortest path problem using value iteration
+        :input Maze env           : The maze environment in which we seek to
+                                    find the shortest path.
+        :input float gamma        : The discount factor.
+        :input float epsilon      : accuracy of the value iteration procedure.
+        :return numpy.array V     : Optimal values for every state at every
+                                    time, dimension S*T
+        :return numpy.array policy: Optimal time-varying policy at every state,
+                                    dimension S*T
+    """
+    # The value itearation algorithm requires the knowledge of :
+    # - Transition probabilities
+    # - Rewards
+    # - State space
+    # - Action space
+    # - The finite horizon
+    p = env.transition_probabilities
+    r = env.rewards
+    n_states = env.n_states
+    n_actions = env.n_actions
+
+    # Required variables and temporary ones for the VI to run
+    V = np.zeros(n_states)
+    Q = np.zeros((n_states, n_actions))
+    BV = np.zeros(n_states)
+    # Iteration counter
+    n = 0
+    # Tolerance error
+    tol = (1 - gamma) * epsilon / gamma
+
+    # Initialization of the VI
+    for s in range(n_states):
+        for a in range(n_actions):
+            Q[s, a] = r[s, a] + gamma * np.dot(p[:, s, a], V)
+
+    BV = np.max(Q, 1)
+
+    # Iterate until convergence
+    while np.linalg.norm(V - BV) >= tol and n < 200:
+        # Increment by one the numbers of iteration
+        n += 1
+        # Update the value function
+        V = np.copy(BV)
+        # Compute the new BV
+        for s in range(n_states):
+            for a in range(n_actions):
+                Q[s, a] = r[s, a] + gamma * np.dot(p[:, s, a], V)
+        BV = np.max(Q, 1)
+        # Show error
+        #print(np.linalg.norm(V - BV))
+
+    # Compute policy
+    policy = np.argmax(Q, 1)
+    # Return the obtained policy
     return V, policy
 
 
