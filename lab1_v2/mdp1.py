@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import time
 from IPython import display
 import random
+from datetime import datetime
 from collections import deque
 
 
@@ -246,6 +247,9 @@ class Maze:
             # to the path
             path.append(self.states[next_s])
             # Loop while state is not the goal state
+            isWin = 0
+            steps = 0
+            isLost = 0
             while s != next_s:
                 # Update state
                 s = next_s
@@ -258,7 +262,7 @@ class Maze:
                 path.append(self.states[next_s])
                 # Update time and state for next iteration
                 t += 1
-                if self.states[s][0:2] == self.states[s][2:] or t == T:
+                if self.states[s][0:2] == self.states[s][2:] or t >= T:
                     # print("YOU LOST THE GAME")
                     isLost = 1
                     steps = t
@@ -268,7 +272,7 @@ class Maze:
                     steps = t
                     isWin = 1
                     break
-        return isWin, isLost, steps, path
+        return path, t, isWin
 
     def draw_path(self, policy_matrix, time_step, minotaur_pos, ValIter=False):
         # print(len(self.states))  # 2240 states
@@ -288,48 +292,6 @@ class Maze:
     def isValid(self, max_row, max_col, row, col):
         return (row >= 0) and (row < max_row) and (col >= 0) and (col < max_col)
 
-    def bfs(self, src):
-        ROW = self.maze.shape[0]
-        COL = self.maze.shape[1]
-        rowNum = [-1, 0, 0, 1]
-        colNum = [0, -1, 1, 0]
-
-        # check source and destination cell is not wall
-        if self.maze[src[0]][src[1]] == 1 or self.maze[self.exit[0]][self.exit[1]] == 1:
-            return -1
-
-        visited = [[False for i in range(COL)]
-                   for j in range(ROW)]
-
-        # Mark the source cell as visited
-        visited[src[0]][src[1]] = True
-
-        q = deque()
-        s = (src, 0)  # distance of source is 0
-        q.append(s)  # Enqueue source cell
-
-        # Do a BFS starting from source cell
-        while q:
-            curr = q.popleft()  # Dequeue the front cell
-            # done when destination is reached
-            pt = curr[0]
-            if pt[0] == self.exit[0] and pt[1] == self.exit[1]:
-                return curr[1]
-
-            # Otherwise enqueue its adjacent cells
-            for i in range(4):
-                row = pt[0] + rowNum[i]
-                col = pt[1] + colNum[i]
-                # if adjacent cell is valid, has path and not visited yet, enqueue it.
-                if (self.isValid(self.maze.shape[0], self.maze.shape[1], row, col) and
-                    self.maze[row][col] != 1 and
-                        not visited[row][col]):
-                    visited[row][col] = True
-                    adjcell = ((row, col), curr[1] + 1)
-                    q.append(adjcell)
-        # Return -1 if destination cannot be reached
-        return -1
-
     def compute_prob(self, start, policy, method, trials):
         total_wins = 0
         total_losses = 0
@@ -337,17 +299,17 @@ class Maze:
         step_distribution_win = dict.fromkeys(range(self.T + 1), 0)
         step_distribution_loss = dict.fromkeys(range(self.T + 1), 0)
         for _ in range(trials):
-            isWin, isLost, steps, _ = self.simulate(start, policy, method)
+            path, steps, isWin = self.simulate(start, policy, method)
             total_wins += isWin
-            total_losses += isLost
+            # total_losses += isLost
             step_distribution_win[steps] += isWin
-            step_distribution_loss[steps] += isLost
+            # step_distribution_loss[steps] += isLost
 
-        assert (trials == total_losses + total_wins)
+        # assert (trials == total_losses + total_wins)
         prob_win = round(total_wins / trials, 5)
-        prob_los = round(1 - prob_win, 5)
-        assert (prob_los == round(total_losses / trials, 5))
-        return prob_win, step_distribution_win, step_distribution_loss
+        # prob_los = round(1 - prob_win, 5)
+        # assert (prob_los == round(total_losses / trials, 5))
+        return prob_win, step_distribution_win
 
 
 def dynamic_programming(env, horizon):
@@ -414,7 +376,6 @@ def value_iteration(env, gamma, epsilon):
     # - Rewards
     # - State space
     # - Action space
-    # - The finite horizon
     p = env.transition_probabilities
     r = env.rewards
     n_states = env.n_states
@@ -437,7 +398,7 @@ def value_iteration(env, gamma, epsilon):
     BV = np.max(Q, 1)
 
     # Iterate until convergence
-    while np.linalg.norm(V - BV) >= tol and n < 200:
+    while np.linalg.norm(V - BV) >= tol and n < 100000:
         # Increment by one the numbers of iteration
         n += 1
         # Update the value function
@@ -596,3 +557,45 @@ def print_path(path, show_step_number=False):
     print('Total Steps:', len(path))
     print(player_string)
     print(minu_string)
+
+
+def compute_probability(env, method, trials=10000, start=(0, 0, 4, 5)):
+
+    if method == 'DynProg':
+        T = 30
+        c = np.zeros(T)
+        for t in range(T):
+            _, policy = dynamic_programming(env, t)
+            for i in range(trials):
+                _, _, win_flag = env.simulate(start, policy, method)
+                c[t] += win_flag
+    elif method == 'ValIter':
+        start = (0, 0, 4, 5)
+        dict_wins_at_t = {}
+        gamma = 29 / 30
+        _, policy = value_iteration(env, gamma=gamma, epsilon=0.0001)
+        for i in range(trials):
+            _, t, win_flag = env.simulate(start, policy, method)
+            if t in dict_wins_at_t:
+                dict_wins_at_t[t] += win_flag
+            else:
+                dict_wins_at_t[t] = win_flag
+        max_key = max(dict_wins_at_t.keys()) + 1
+        c = np.zeros(max_key)
+        for i in range(max_key):
+            if i in dict_wins_at_t:
+                c[i] = dict_wins_at_t[i]
+    else:
+        raise Exception('Invalid Method. Must be ValIter or DynProg')
+    total_prob = np.sum(c) / trials
+    probabilities = c / trials
+    com_prob = np.cumsum(probabilities)
+    plt.ylabel('Exit probability')
+    plt.xlabel('Horizon T')
+    # plt.title('Exit probability vs. Horizon T (Minotaur cannot stay)')
+    plt.title(
+        'Cumulative Exit probability (Minotaur can stay) | P(exit) = ' + str(round(total_prob, 3)))
+    plt.plot(probabilities)
+    plt.plot(com_prob, 'r--')
+    plt.show()
+    plt.savefig('1e.png')
