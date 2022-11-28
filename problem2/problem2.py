@@ -1,3 +1,6 @@
+# Jing Li 19980512-9260
+# Oliver Moeller 19980831-2913
+
 # Copyright [2020] [KTH Royal Institute of Technology] Licensed under the
 # Educational Community License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may
@@ -28,14 +31,12 @@ env.reset()
 k = env.action_space.n      # tells you the number of actions
 low, high = env.observation_space.low, env.observation_space.high
 
-random.seed(0)
-np.random.seed(0)
 # Parameters
 N_episodes = 50      # Number of episodes to run for training
 discount_factor = 1.   # Value of gamma
-LAMBDA = 0.
-# ALPHA = 0.01 # comment in if using decay
-ALPHA = 0.06
+LAMBDA = 0.1
+ALPHA = 0.2  # comment in if using decay
+# ALPHA = 0.06
 ALPHA_MIN = 0.0000001
 M = 0.2
 P = 2  # Order of fourier base
@@ -43,13 +44,12 @@ ETA = np.array([[i, j] for i in range(P + 1) for j in range(P + 1)])
 # ETA = np.delete(ETA, (0), axis=0)  # remove [0,0]
 
 # SCOPE is used for decaying alpha (number of elemtns used to compute the current mean reward)
-SCOPE = 3
-EPS = 1.
-Q_w = np.ones((k)) * 200
-print(Q_w)
+SCOPE = 1
+EPS = 0.
+Q_w = np.zeros((k))
 
-# w = np.zeros((ETA.shape[0], k))  # init weights
-w = np.ones((ETA.shape[0], k)) * 200  # init weights
+w = np.zeros((ETA.shape[0], k))  # init weights
+# w = np.ones((ETA.shape[0], k)) * 200  # init weights
 v = np.zeros((ETA.shape[0], k))  # init weights
 
 
@@ -119,12 +119,20 @@ final_rewards = np.zeros(REPETITIONS)
 alphas = []
 lambdas = []
 avg_total_rewards = np.zeros(REPETITIONS)
+Qs = []
+
 for rep in range(REPETITIONS):
     print('Repitition:', rep, '/', REPETITIONS)
+
     if 1:
         # reset parameters
+        init_factor = 1
         Q_w = np.zeros((k))
+        # Q_w = np.ones((k)) * init_factor
         w = np.zeros((ETA.shape[0], k))  # init weights
+        # w = np.ones((ETA.shape[0], k)) * init_factor   # init weights
+        # w[:, 1] = w[:, 1] * -2
+        # w = np.random.uniform(0, 1, (ETA.shape[0], k))  # init weights
         alpha = ALPHA
         alpha = scale_alpha(alpha)
         eps = EPS
@@ -140,6 +148,7 @@ for rep in range(REPETITIONS):
 
         # Training process
         last_n_rewards = np.zeros(SCOPE)
+
         for i in range(N_episodes):
             # Reset enviroment data
             done = False
@@ -182,18 +191,21 @@ for rep in range(REPETITIONS):
 
                 # Update Q_w
                 Q_w = np.dot(w.T, phi(state))
+                # if i == 0 and rep == 0:
+                Qs.append(Q_w)
 
                 # Update state for next iteration
                 state = next_state
                 a_t = action_next
 
             last_n_rewards[i % SCOPE] = total_episode_reward
-            # alpha = decay_alpha(i, alpha, last_n_rewards)
+            alpha = decay_alpha(i, alpha, last_n_rewards)
             # alpha = alpha * 0.95 # linear decay
             # Append episode reward
             episode_reward_list.append(total_episode_reward)
             if eps > 0.00001:
                 eps = eps * 0.97
+
         final_rewards[rep] = total_episode_reward  # add reward of last episode
         avg_total_rewards[rep] = np.mean(episode_reward_list)
 
@@ -221,6 +233,15 @@ for rep in range(REPETITIONS):
 print('Final Rewards:', final_rewards)
 print('Final Mean Reward:', np.mean(final_rewards))
 print('Final Std Reward:', np.std(final_rewards))
+print('Avg Total Reward:', np.mean(avg_total_rewards))
+print('Std of Avg Total Reward:', np.std(avg_total_rewards))
+print('Q-values first episode, first run:')
+action_count = {0: 0, 1: 0, 2: 0}
+for q in Qs:
+    # print(q)
+    action_count[np.argmax(q)] += 1
+print(action_count)
+
 if 0:
     # plot rewards by alpha/gamma
     # Plot Rewards
