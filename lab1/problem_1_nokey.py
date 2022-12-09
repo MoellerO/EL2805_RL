@@ -1,3 +1,6 @@
+# Jing Li 19980512-9260
+# Oliver Moeller 19980831-2913
+
 import numpy as np
 import matplotlib.pyplot as plt
 import time
