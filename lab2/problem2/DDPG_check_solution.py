@@ -20,20 +20,23 @@ import gym
 import torch
 from tqdm import trange
 
+
 def running_average(x, N):
     ''' Function used to compute the running average
         of the last N elements of a vector x
     '''
     if len(x) >= N:
         y = np.copy(x)
-        y[N-1:] = np.convolve(x, np.ones((N, )) / N, mode='valid')
+        y[N - 1:] = np.convolve(x, np.ones((N, )) / N, mode='valid')
     else:
         y = np.zeros_like(x)
     return y
 
+
 # Load model
 try:
-    model = torch.load('neural-network-2-actor.pth')
+    model = torch.load('neural-network-2-actor.pt',
+                       map_location=torch.device('cpu'))
     print('Network model: {}'.format(model))
 except:
     print('File neural-network-2-actor.pth not found!')
@@ -83,8 +86,8 @@ confidence = np.std(episode_reward_list) * 1.96 / np.sqrt(N_EPISODES)
 
 
 print('Policy achieves an average total reward of {:.1f} +/- {:.1f} with confidence 95%.'.format(
-                avg_reward,
-                confidence))
+    avg_reward,
+    confidence))
 
 if avg_reward - confidence >= CONFIDENCE_PASS:
     print('Your policy passed the test!')

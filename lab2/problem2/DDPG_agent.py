@@ -15,31 +15,74 @@
 
 # Load packages
 import numpy as np
+import torch as T
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+
+from collections import deque
 
 
-class Agent(object):
-    ''' Base agent class
-
-        Args:
-            n_actions (int): actions dimensionality
-
-        Attributes:
-            n_actions (int): where we store the dimensionality of an action
+class Actor(nn.Module):
+    ''' Actor network. Gets an state and outputs an action.
     '''
-    def __init__(self, n_actions: int):
-        self.n_actions = n_actions
 
-    def forward(self, state: np.ndarray):
-        ''' Performs a forward computation '''
-        pass
+    def __init__(self, device):
+        super(Actor, self).__init__()
+        self.input_dim = 8
+        self.fc1_dim = 400
+        self.fc2_dim = 200
+        self.out_dim = 2
+        lr = 5e-4
 
-    def backward(self):
-        ''' Performs a backward pass on the network '''
-        pass
+        self.fc1 = nn.Linear(self.input_dim, self.fc1_dim)
+        self.fc2 = nn.Linear(self.fc1_dim, self.fc2_dim)
+        self.fc3 = nn.Linear(self.fc2_dim, self.out_dim)
+
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
+        # self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+        self.to(device)
+
+    def forward(self, state):
+        x = F.relu(self.fc1(state))
+        x = F.relu(self.fc2(x))
+        action = F.tanh(self.fc3(x))
+        return action
 
 
-class RandomAgent(Agent):
+class Critic(nn.Module):
+    ''' Critic modeling pi. Takes state and action, returns value.
+    '''
+
+    def __init__(self, device):
+        super(Critic, self).__init__()
+        self.input_dim = 8
+        self.fc1_dim = 400
+        self.fc2_dim = 200
+        self.nmb_actions = 2
+        lr = 5e-3
+
+        self.fc1 = nn.Linear(self.input_dim, self.fc1_dim)
+        self.a1 = nn.PReLU()
+        self.fc2 = nn.Linear(self.fc1_dim + self.nmb_actions, self.fc2_dim)
+        self.a2 = nn.PReLU()
+        self.fc3 = nn.Linear(self.fc2_dim, 1)
+
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
+        self.loss = nn.MSELoss()
+        self.to(device)
+
+    def forward(self, state, action):
+        x = self.a1(self.fc1(state))
+        concat_action = T.cat([x, action], dim=1)
+        x = self.a2(self.fc2(concat_action))
+        out = self.fc3(x)
+        return out
+
+
+class RandomAgent(object):
     ''' Agent taking actions uniformly at random, child of the class Agent'''
+
     def __init__(self, n_actions: int):
         super(RandomAgent, self).__init__(n_actions)
 
